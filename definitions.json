@@ -9,6 +9,7 @@
   "tags": ["emoji", "fun", "reactions"],
   "recommended": true,
   "changelog": {
+    "1.0.6": "Auto-convert ASCII emoticons while typing (:) :( :D etc); backspace reverts",
     "1.0.4": "Fixed CSS bundling and missing styles"
   }
 }

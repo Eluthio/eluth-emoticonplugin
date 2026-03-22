@@ -100,7 +100,7 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
-import { EMOJI_CATEGORIES } from './emojis.js'
+import { EMOJI_CATEGORIES, SHORTCODE_MAP } from './emojis.js'
 
 const props = defineProps({
     settings:   { type: Object, default: () => ({}) },
@@ -230,8 +230,93 @@ function onClickOutside(e) {
     }
 }
 
-onMounted(() => document.addEventListener('click', onClickOutside))
-onUnmounted(() => document.removeEventListener('click', onClickOutside))
+// ── Shortcode auto-conversion ─────────────────────────────────────────────
+// Watches the chat textarea for ASCII emoticons (e.g. :) + space → 🙂).
+// Pressing Backspace immediately after a conversion reverts to the original text.
+
+let chatInput       = null
+let lastReplacement = null   // { start, end, original }
+let isProgrammatic  = false
+
+function findChatInput() {
+    // The textarea lives in the same input bar — same DOM context, same page
+    chatInput = document.querySelector('textarea.message-input')
+}
+
+function onShortcodeInput() {
+    if (isProgrammatic) return
+    lastReplacement = null
+
+    const el  = chatInput
+    const val = el.value
+    const pos = el.selectionStart
+
+    // Only trigger when the most-recently typed character is a space
+    if (pos === 0 || val[pos - 1] !== ' ') return
+
+    // Find the word immediately before the space
+    const before    = val.slice(0, pos - 1)
+    const wordMatch = before.match(/\S+$/)
+    if (!wordMatch) return
+
+    const shortcode = wordMatch[0]
+    const emoji     = SHORTCODE_MAP[shortcode]
+    if (!emoji) return
+
+    const start  = pos - 1 - shortcode.length
+    const end    = pos   // includes trailing space
+
+    // Replace shortcode + space → emoji + space
+    isProgrammatic = true
+    el.value = val.slice(0, start) + emoji + ' ' + val.slice(end)
+    const newPos = start + [...emoji].length + 1
+    el.setSelectionRange(newPos, newPos)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+    isProgrammatic = false
+
+    lastReplacement = { start, end: newPos, original: shortcode + ' ' }
+}
+
+function onShortcodeKeydown(e) {
+    if (e.key === 'Backspace' && lastReplacement) {
+        const pos = chatInput.selectionStart
+        if (pos === lastReplacement.end) {
+            e.preventDefault()
+            const val = chatInput.value
+            isProgrammatic = true
+            chatInput.value =
+                val.slice(0, lastReplacement.start) +
+                lastReplacement.original +
+                val.slice(lastReplacement.end)
+            const revPos = lastReplacement.start + lastReplacement.original.length
+            chatInput.setSelectionRange(revPos, revPos)
+            chatInput.dispatchEvent(new Event('input', { bubbles: true }))
+            isProgrammatic = false
+            lastReplacement = null
+            return
+        }
+    }
+    // Any key other than Backspace clears the revert window
+    if (e.key !== 'Backspace') lastReplacement = null
+}
+
+onMounted(() => {
+    document.addEventListener('click', onClickOutside)
+    findChatInput()
+    if (chatInput) {
+        chatInput.addEventListener('input',   onShortcodeInput)
+        chatInput.addEventListener('keydown', onShortcodeKeydown)
+    }
+})
+
+onUnmounted(() => {
+    document.removeEventListener('click', onClickOutside)
+    if (chatInput) {
+        chatInput.removeEventListener('input',   onShortcodeInput)
+        chatInput.removeEventListener('keydown', onShortcodeKeydown)
+    }
+    chatInput = null
+})
 </script>
 
 <style scoped>
