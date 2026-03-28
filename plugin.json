@@ -1,9 +1,10 @@
 {
   "name": "Emoticon Picker",
   "slug": "emoticon-picker",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "min_server_version": "1.1.0",
   "tier": "official",
+  "entry": "index.js",
   "zones": [
     "input"
   ],
